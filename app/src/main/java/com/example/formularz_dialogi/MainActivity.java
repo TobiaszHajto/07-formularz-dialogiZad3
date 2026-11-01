@@ -11,7 +11,6 @@ import android.widget.SeekBar;
 import android.widget.Spinner;
 import android.widget.Switch;
 import android.widget.TextView;
-import android.widget.Toast;
 
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
@@ -24,7 +23,7 @@ import java.util.Locale;
 public class MainActivity extends AppCompatActivity {
 
     private EditText etName;
-    private Button btnDate, btnSubmit;
+    private Button btnDate, btnSubmit, btnClear;
     private Spinner spDestination;
     private SeekBar sbPeople;
     private TextView tvPeople, tvSummary;
@@ -32,7 +31,18 @@ public class MainActivity extends AppCompatActivity {
     private CheckBox cbTerms;
 
     private String departureDate = "";
-    private String previousSummary = "";
+    private FormState previousState;
+
+    private static class FormState {
+        String name;
+        CharSequence nameError;
+        int destination;
+        int people;
+        boolean insurance;
+        boolean terms;
+        String date;
+        String summary;
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -42,6 +52,7 @@ public class MainActivity extends AppCompatActivity {
         etName = findViewById(R.id.etName);
         btnDate = findViewById(R.id.btnDate);
         btnSubmit = findViewById(R.id.btnSubmit);
+        btnClear = findViewById(R.id.btnClear);
         spDestination = findViewById(R.id.spDestination);
         sbPeople = findViewById(R.id.sbPeople);
         tvPeople = findViewById(R.id.tvPeople);
@@ -96,6 +107,8 @@ public class MainActivity extends AppCompatActivity {
                 askForConfirmation();
             }
         });
+
+        btnClear.setOnClickListener(v -> askForClearConfirmation());
     }
 
     private void showDatePicker() {
@@ -127,14 +140,12 @@ public class MainActivity extends AppCompatActivity {
         }
 
         if (spDestination.getSelectedItemPosition() == 0) {
-            Toast.makeText(this, "Wybierz kierunek wycieczki",
-                    Toast.LENGTH_SHORT).show();
+            tvPeople.requestFocus();
             return false;
         }
 
         if (departureDate.isEmpty()) {
-            Toast.makeText(this, "Wybierz datę wyjazdu",
-                    Toast.LENGTH_SHORT).show();
+            btnDate.setError("Wybierz datę wyjazdu");
             return false;
         }
 
@@ -151,14 +162,11 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void submitForm() {
-        previousSummary = tvSummary.getText().toString();
-
         tvSummary.setText(buildSummary());
 
         Snackbar.make(findViewById(R.id.main),
                         "Zapisano na wycieczkę",
                         Snackbar.LENGTH_LONG)
-                .setAction("Cofnij", v -> tvSummary.setText(previousSummary))
                 .show();
     }
 
@@ -176,5 +184,79 @@ public class MainActivity extends AppCompatActivity {
                 + departureDate
                 + "\nUbezpieczenie: "
                 + insurance;
+    }
+
+    private void askForClearConfirmation() {
+        new AlertDialog.Builder(this)
+                .setTitle("Wyczyść formularz")
+                .setMessage("Czy na pewno chcesz wyczyścić wszystkie pola?")
+                .setPositiveButton("Tak", (dialog, which) -> clearForm())
+                .setNegativeButton("Nie", null)
+                .show();
+    }
+
+    private void saveFormState() {
+        previousState = new FormState();
+
+        previousState.name = etName.getText().toString();
+        previousState.nameError = etName.getError();
+        previousState.destination = spDestination.getSelectedItemPosition();
+        previousState.people = sbPeople.getProgress();
+        previousState.insurance = swInsurance.isChecked();
+        previousState.terms = cbTerms.isChecked();
+        previousState.date = departureDate;
+        previousState.summary = tvSummary.getText().toString();
+    }
+
+    private void clearForm() {
+        saveFormState();
+
+        etName.setText("");
+        etName.setError(null);
+
+        spDestination.setSelection(0);
+
+        sbPeople.setProgress(0);
+
+        swInsurance.setChecked(false);
+        cbTerms.setChecked(false);
+
+        departureDate = "";
+        btnDate.setText("Wybierz datę");
+        btnDate.setError(null);
+
+        tvSummary.setText("");
+
+        Snackbar.make(findViewById(R.id.main),
+                        "Formularz został wyczyszczony",
+                        Snackbar.LENGTH_LONG)
+                .setAction("Cofnij", v -> restoreForm())
+                .show();
+    }
+
+    private void restoreForm() {
+        if (previousState == null) {
+            return;
+        }
+
+        etName.setText(previousState.name);
+        etName.setError(previousState.nameError);
+
+        spDestination.setSelection(previousState.destination);
+
+        sbPeople.setProgress(previousState.people);
+
+        swInsurance.setChecked(previousState.insurance);
+        cbTerms.setChecked(previousState.terms);
+
+        departureDate = previousState.date;
+
+        if (departureDate.isEmpty()) {
+            btnDate.setText("Wybierz datę");
+        } else {
+            btnDate.setText(departureDate);
+        }
+
+        tvSummary.setText(previousState.summary);
     }
 }
